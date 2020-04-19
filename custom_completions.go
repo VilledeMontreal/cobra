@@ -1,7 +1,6 @@
 package cobra
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -136,7 +135,6 @@ func (c *Command) initCompleteCmd(args []string) {
 }
 
 func (c *Command) getCompletions(args []string) (*Command, []string, ShellCompDirective, error) {
-	var completions []string
 
 	// The last argument, which is not completely typed by the user,
 	// should not be part of the list of arguments
@@ -147,41 +145,56 @@ func (c *Command) getCompletions(args []string) (*Command, []string, ShellCompDi
 	finalCmd, finalArgs, err := c.Root().Find(trimmedArgs)
 	if err != nil {
 		// Unable to find the real command. E.g., <program> someInvalidCmd <TAB>
-		return c, completions, ShellCompDirectiveDefault, fmt.Errorf("Unable to find a command for arguments: %v", trimmedArgs)
-	}
-
-	// When doing completion of a flag name, as soon as an argument starts with
-	// a '-' we know it is a flag.  We cannot use isFlagArg() here as it requires
-	// the flag to be complete
-	if len(toComplete) > 0 && toComplete[0] == '-' && !strings.Contains(toComplete, "=") {
-		// We are completing a flag name
-		finalCmd.NonInheritedFlags().VisitAll(func(flag *pflag.Flag) {
-			completions = append(completions, getFlagNameCompletions(flag, toComplete)...)
-		})
-		finalCmd.InheritedFlags().VisitAll(func(flag *pflag.Flag) {
-			completions = append(completions, getFlagNameCompletions(flag, toComplete)...)
-		})
-
-		directive := ShellCompDirectiveDefault
-		if len(completions) > 0 {
-			if strings.HasSuffix(completions[0], "=") {
-				directive = ShellCompDirectiveNoSpace
-			}
-		}
-		return finalCmd, completions, directive, nil
+		return c, []string{}, ShellCompDirectiveDefault, fmt.Errorf("Unable to find a command for arguments: %v", trimmedArgs)
 	}
 
 	var flag *pflag.Flag
+	// Check if we are doing flag value completion before parsing the arguments.
+	// This is important because if we are completing a flag value, we need to also
+	// remove the flag name argument from the list of finalArgs or else the parsing
+	// could fail due to an invalid value (incomplete) for the flag.
 	if !finalCmd.DisableFlagParsing {
 		// We only do flag completion if we are allowed to parse flags
 		// This is important for commands which have requested to do their own flag completion.
 		flag, finalArgs, toComplete, err = checkIfFlagCompletion(finalCmd, finalArgs, toComplete)
 		if err != nil {
 			// Error while attempting to parse flags
-			return finalCmd, completions, ShellCompDirectiveDefault, err
+			return finalCmd, []string{}, ShellCompDirectiveDefault, err
 		}
 	}
 
+	// Parse the arguments early so we can check if required flags are set
+	if err = finalCmd.ParseFlags(finalArgs); err != nil {
+		return finalCmd, []string{}, ShellCompDirectiveDefault, fmt.Errorf("Error while parsing flags from args %v: %s", finalArgs, err.Error())
+	}
+
+	// When doing completion of a flag name, as soon as an argument starts with
+	// a '-' we know it is a flag.  We cannot use isFlagArg() here as it requires
+	// the flag name to be complete
+	if flag == nil && len(toComplete) > 0 && toComplete[0] == '-' /*&& !strings.Contains(toComplete, "=")*/ {
+		var completions []string
+
+		// First check for required flags
+		completions = completeRequireFlags(finalCmd, finalArgs, toComplete)
+
+		// If we found any required flags, we are done because they take precedence over other flags
+		if len(completions) == 0 {
+			// No required flags, do completion for all flag names
+			finalCmd.Flags().VisitAll(func(flag *pflag.Flag) {
+				completions = append(completions, getFlagNameCompletions(flag, toComplete)...)
+			})
+		}
+
+		directive := ShellCompDirectiveDefault
+		if len(completions) == 1 && strings.HasSuffix(completions[0], "=") {
+			// If there is a single completion, the shell usually adds a space
+			// after the completion.  We don't want that if the flag end with an =
+			directive = ShellCompDirectiveNoSpace
+		}
+		return finalCmd, completions, directive, nil
+	}
+
+	var completions []string
 	if flag == nil {
 		// Complete subcommand names
 		for _, subCmd := range finalCmd.Commands() {
@@ -190,9 +203,12 @@ func (c *Command) getCompletions(args []string) (*Command, []string, ShellCompDi
 			}
 		}
 
+		// Complete required flags even without the '-' prefix
+		completions = append(completions, completeRequireFlags(finalCmd, finalArgs, toComplete)...)
+
+		// Always complete ValidArgs, even if we are completing a subcommand name.
+		// This is for commands that have both subcommands and ValidArgs.
 		if len(finalCmd.ValidArgs) > 0 {
-			// Always complete ValidArgs, even if we are completing a subcommand name.
-			// This is for commands that have both subcommands and ValidArgs.
 			for _, validArg := range finalCmd.ValidArgs {
 				if strings.HasPrefix(validArg, toComplete) {
 					completions = append(completions, validArg)
@@ -204,14 +220,9 @@ func (c *Command) getCompletions(args []string) (*Command, []string, ShellCompDi
 			return finalCmd, completions, ShellCompDirectiveNoFileComp, nil
 		}
 
-		// Always let the logic continue so as to add any ValidArgsFunction completions,
+		// Let the logic continue so as to add any ValidArgsFunction completions,
 		// even if we already found sub-commands.
 		// This is for commands that have subcommands but also specify a ValidArgsFunction.
-	}
-
-	// Parse the flags and extract the arguments to prepare for calling the completion function
-	if err = finalCmd.ParseFlags(finalArgs); err != nil {
-		return finalCmd, completions, ShellCompDirectiveDefault, fmt.Errorf("Error while parsing flags from args %v: %s", finalArgs, err.Error())
 	}
 
 	// We only remove the flags from the arguments if DisableFlagParsing is not set.
@@ -264,17 +275,41 @@ func getFlagNameCompletions(flag *pflag.Flag, toComplete string) []string {
 	return completions
 }
 
+func completeRequireFlags(finalCmd *Command, args []string, toComplete string) []string {
+	var completions []string
+
+	doCompleteRequiredFlags := func(flag *pflag.Flag) {
+		if _, present := flag.Annotations[BashCompOneRequiredFlag]; present {
+			if !flag.Changed {
+				completions = append(completions, getFlagNameCompletions(flag, toComplete)...)
+			}
+		}
+	}
+
+	finalCmd.Flags().VisitAll(func(flag *pflag.Flag) {
+		doCompleteRequiredFlags(flag)
+	})
+
+	return completions
+}
+
 func checkIfFlagCompletion(finalCmd *Command, args []string, lastArg string) (*pflag.Flag, []string, string, error) {
 	var flagName string
 	trimmedArgs := args
 	flagWithEqual := false
-	if isFlagArg(lastArg) {
+
+	// When doing completion of a flag name, as soon as an argument starts with
+	// a '-' we know it is a flag.  We cannot use isFlagArg() here as that function
+	// requires the flag name to be complete
+	if len(lastArg) > 0 && lastArg[0] == '-' {
 		if index := strings.Index(lastArg, "="); index >= 0 {
+			// Flag with an =
 			flagName = strings.TrimLeft(lastArg[:index], "-")
 			lastArg = lastArg[index+1:]
 			flagWithEqual = true
 		} else {
-			return nil, nil, "", errors.New("Unexpected completion request for flag")
+			// Normal flag completion
+			return nil, args, lastArg, nil
 		}
 	}
 
