@@ -629,3 +629,172 @@ func TestFlagCompletionInGoWithDesc(t *testing.T) {
 		t.Errorf("expected: %q, got: %q", expected, output)
 	}
 }
+
+func TestFlagNameCompletionInGo(t *testing.T) {
+	rootCmd := &Command{
+		Use: "root",
+		Run: emptyRun,
+	}
+	childCmd := &Command{
+		Use: "childCmd",
+		Run: emptyRun,
+	}
+	rootCmd.AddCommand(childCmd)
+
+	rootCmd.Flags().IntP("first", "f", -1, "first flag")
+	rootCmd.PersistentFlags().BoolP("second", "s", false, "second flag")
+	childCmd.Flags().String("subFlag", "", "sub flag")
+
+	// Test that flag names are not shown if the user has not given the '-' prefix
+	output, err := executeCommand(rootCmd, ShellCompNoDescRequestCmd, "")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	expected := strings.Join([]string{
+		"childCmd",
+		":0",
+		"Completion ended with directive: ShellCompDirectiveDefault", ""}, "\n")
+
+	if output != expected {
+		t.Errorf("expected: %q, got: %q", expected, output)
+	}
+
+	// Test that flag names are completed
+	output, err = executeCommand(rootCmd, ShellCompNoDescRequestCmd, "-")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	expected = strings.Join([]string{
+		"--first",
+		"--first=",
+		"-f",
+		"--second",
+		"-s",
+		":0",
+		"Completion ended with directive: ShellCompDirectiveDefault", ""}, "\n")
+
+	if output != expected {
+		t.Errorf("expected: %q, got: %q", expected, output)
+	}
+
+	// Test that flag names are completed when a prefix is given
+	output, err = executeCommand(rootCmd, ShellCompNoDescRequestCmd, "--f")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	expected = strings.Join([]string{
+		"--first",
+		"--first=",
+		":0",
+		"Completion ended with directive: ShellCompDirectiveDefault", ""}, "\n")
+
+	if output != expected {
+		t.Errorf("expected: %q, got: %q", expected, output)
+	}
+
+	// Test that flag names are completed in a sub-cmd
+	output, err = executeCommand(rootCmd, ShellCompNoDescRequestCmd, "childCmd", "-")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	expected = strings.Join([]string{
+		"--subFlag",
+		"--subFlag=",
+		"--second",
+		"-s",
+		":0",
+		"Completion ended with directive: ShellCompDirectiveDefault", ""}, "\n")
+
+	if output != expected {
+		t.Errorf("expected: %q, got: %q", expected, output)
+	}
+}
+
+func TestFlagNameCompletionInGoWithDesc(t *testing.T) {
+	rootCmd := &Command{
+		Use: "root",
+		Run: emptyRun,
+	}
+	childCmd := &Command{
+		Use:   "childCmd",
+		Short: "first command",
+		Run:   emptyRun,
+	}
+	rootCmd.AddCommand(childCmd)
+
+	rootCmd.Flags().IntP("first", "f", -1, "first flag")
+	rootCmd.PersistentFlags().BoolP("second", "s", false, "second flag")
+	childCmd.Flags().String("subFlag", "", "sub flag")
+
+	// Test that flag names are not shown if the user has not given the '-' prefix
+	output, err := executeCommand(rootCmd, ShellCompRequestCmd, "")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	expected := strings.Join([]string{
+		"childCmd\tfirst command",
+		":0",
+		"Completion ended with directive: ShellCompDirectiveDefault", ""}, "\n")
+
+	if output != expected {
+		t.Errorf("expected: %q, got: %q", expected, output)
+	}
+
+	// Test that flag names are completed
+	output, err = executeCommand(rootCmd, ShellCompRequestCmd, "-")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	expected = strings.Join([]string{
+		"--first\tfirst flag",
+		"--first=\tfirst flag",
+		"-f\tfirst flag",
+		"--second\tsecond flag",
+		"-s\tsecond flag",
+		":0",
+		"Completion ended with directive: ShellCompDirectiveDefault", ""}, "\n")
+
+	if output != expected {
+		t.Errorf("expected: %q, got: %q", expected, output)
+	}
+
+	// Test that flag names are completed when a prefix is given
+	output, err = executeCommand(rootCmd, ShellCompRequestCmd, "--f")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	expected = strings.Join([]string{
+		"--first\tfirst flag",
+		"--first=\tfirst flag",
+		":0",
+		"Completion ended with directive: ShellCompDirectiveDefault", ""}, "\n")
+
+	if output != expected {
+		t.Errorf("expected: %q, got: %q", expected, output)
+	}
+
+	// Test that flag names are completed in a sub-cmd
+	output, err = executeCommand(rootCmd, ShellCompRequestCmd, "childCmd", "-")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	expected = strings.Join([]string{
+		"--subFlag\tsub flag",
+		"--subFlag=\tsub flag",
+		"--second\tsecond flag",
+		"-s\tsecond flag",
+		":0",
+		"Completion ended with directive: ShellCompDirectiveDefault", ""}, "\n")
+
+	if output != expected {
+		t.Errorf("expected: %q, got: %q", expected, output)
+	}
+}
