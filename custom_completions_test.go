@@ -1382,24 +1382,13 @@ func TestValidArgsFuncAliases(t *testing.T) {
 	}
 }
 
-func TestValidArgsFuncInBashScript(t *testing.T) {
-	rootCmd := &Command{Use: "root", Args: NoArgs, Run: emptyRun}
-	child := &Command{
-		Use:               "child",
-		ValidArgsFunction: validArgsFunc,
-		Run:               emptyRun,
+func TestLegacyCompCodeInBashScript(t *testing.T) {
+	rootCmd := &Command{
+		Use:                    "root",
+		Args:                   NoArgs,
+		Run:                    emptyRun,
+		BashCompletionFunction: bashCompletionFunc,
 	}
-	rootCmd.AddCommand(child)
-
-	buf := new(bytes.Buffer)
-	rootCmd.GenBashCompletion(buf)
-	output := buf.String()
-
-	check(t, output, "has_completion_function=1")
-}
-
-func TestNoValidArgsFuncInBashScript(t *testing.T) {
-	rootCmd := &Command{Use: "root", Args: NoArgs, Run: emptyRun}
 	child := &Command{
 		Use: "child",
 		Run: emptyRun,
@@ -1410,7 +1399,7 @@ func TestNoValidArgsFuncInBashScript(t *testing.T) {
 	rootCmd.GenBashCompletion(buf)
 	output := buf.String()
 
-	checkOmit(t, output, "has_completion_function=1")
+	check(t, output, bashCompletionFunc)
 }
 
 func TestCompleteCmdInBashScript(t *testing.T) {

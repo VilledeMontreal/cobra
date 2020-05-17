@@ -2,7 +2,6 @@ package cobra
 
 import (
 	"bytes"
-	"fmt"
 	"os"
 	"os/exec"
 	"regexp"
@@ -152,86 +151,11 @@ func TestBashCompletions(t *testing.T) {
 	rootCmd.GenBashCompletion(buf)
 	output := buf.String()
 
-	check(t, output, "_root")
-	check(t, output, "_root_echo")
-	check(t, output, "_root_echo_times")
-	check(t, output, "_root_print")
-	check(t, output, "_root_cmd__colon")
-
-	// check for required flags
-	check(t, output, `must_have_one_flag+=("--introot=")`)
-	check(t, output, `must_have_one_flag+=("--persistent-filename=")`)
-	// check for custom completion function with both qualified and unqualified name
-	checkNumOccurrences(t, output, `__custom_func`, 2)      // 1. check existence, 2. invoke
-	checkNumOccurrences(t, output, `__root_custom_func`, 3) // 1. check existence, 2. invoke, 3. actual definition
-	// check for custom completion function body
-	check(t, output, `COMPREPLY=( "hello" )`)
-	// check for required nouns
-	check(t, output, `must_have_one_noun+=("pod")`)
-	// check for noun aliases
-	check(t, output, `noun_aliases+=("pods")`)
-	check(t, output, `noun_aliases+=("rc")`)
-	checkOmit(t, output, `must_have_one_noun+=("pods")`)
-	// check for filename extension flags
-	check(t, output, `flags_completion+=("_filedir")`)
-	// check for filename extension flags
-	check(t, output, `must_have_one_noun+=("three")`)
-	// check for filename extension flags
-	check(t, output, fmt.Sprintf(`flags_completion+=("__%s_handle_filename_extension_flag json|yaml|yml")`, rootCmd.Name()))
-	// check for filename extension flags in a subcommand
-	checkRegex(t, output, fmt.Sprintf(`_root_echo\(\)\n{[^}]*flags_completion\+=\("__%s_handle_filename_extension_flag json\|yaml\|yml"\)`, rootCmd.Name()))
-	// check for custom flags
-	check(t, output, `flags_completion+=("__complete_custom")`)
-	// check for subdirs_in_dir flags
-	check(t, output, fmt.Sprintf(`flags_completion+=("__%s_handle_subdirs_in_dir_flag themes")`, rootCmd.Name()))
-	// check for subdirs_in_dir flags in a subcommand
-	checkRegex(t, output, fmt.Sprintf(`_root_echo\(\)\n{[^}]*flags_completion\+=\("__%s_handle_subdirs_in_dir_flag config"\)`, rootCmd.Name()))
-
-	// check two word flags
-	check(t, output, `two_word_flags+=("--two")`)
-	check(t, output, `two_word_flags+=("-t")`)
-	checkOmit(t, output, `two_word_flags+=("--two-w-default")`)
-	checkOmit(t, output, `two_word_flags+=("-T")`)
-
-	checkOmit(t, output, deprecatedCmd.Name())
-
 	// If available, run shellcheck against the script.
 	if err := exec.Command("which", "shellcheck").Run(); err != nil {
 		return
 	}
 	if err := runShellCheck(output); err != nil {
 		t.Fatalf("shellcheck failed: %v", err)
-	}
-}
-
-func TestBashCompletionHiddenFlag(t *testing.T) {
-	c := &Command{Use: "c", Run: emptyRun}
-
-	const flagName = "hiddenFlag"
-	c.Flags().Bool(flagName, false, "")
-	c.Flags().MarkHidden(flagName)
-
-	buf := new(bytes.Buffer)
-	c.GenBashCompletion(buf)
-	output := buf.String()
-
-	if strings.Contains(output, flagName) {
-		t.Errorf("Expected completion to not include %q flag: Got %v", flagName, output)
-	}
-}
-
-func TestBashCompletionDeprecatedFlag(t *testing.T) {
-	c := &Command{Use: "c", Run: emptyRun}
-
-	const flagName = "deprecated-flag"
-	c.Flags().Bool(flagName, false, "")
-	c.Flags().MarkDeprecated(flagName, "use --not-deprecated instead")
-
-	buf := new(bytes.Buffer)
-	c.GenBashCompletion(buf)
-	output := buf.String()
-
-	if strings.Contains(output, flagName) {
-		t.Errorf("expected completion to not include %q flag: Got %v", flagName, output)
 	}
 }
