@@ -51,7 +51,7 @@ func TestPrintDirectivesMissingDir(t *testing.T) {
 	for dirInt := 1; dirInt < int(shellCompDirectiveMaxValue); dirInt *= 2 {
 		directive := ShellCompDirective(dirInt)
 		if strings.Contains(directive.string(), "ShellCompDirectiveDefault") {
-			t.Errorf("Function ShellCompdirective.sstring() is not handling directive %d", directive)
+			t.Errorf("Function ShellCompdirective.string() is not handling directive %d", directive)
 		}
 	}
 }

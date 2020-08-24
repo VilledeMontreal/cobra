@@ -96,6 +96,7 @@ _%[1]s()
     local shellCompDirectiveFilterDirs=%[7]d
     local shellCompDirectiveLegacyCustomComp=%[8]d
     local shellCompDirectiveLegacyCustomArgsComp=%[9]d
+    local shellCompDirectiveInfo=%[10]d
 
     local lastParam lastChar flagPrefix requestComp out directive compCount comp lastComp
     local -a completions
@@ -173,6 +174,13 @@ _%[1]s()
          return
     fi
 
+
+    if [ $((directive & shellCompDirectiveInfo)) -ne 0 ]; then
+         __%[1]s_debug "Information directive: ${out}"
+         compadd -x "${out}"
+         return
+    fi
+
     compCount=0
     while IFS='\n' read -r comp; do
         if [ -n "$comp" ]; then
@@ -242,5 +250,6 @@ _%[1]s()
 `, name, compCmd,
 		ShellCompDirectiveError, ShellCompDirectiveNoSpace, ShellCompDirectiveNoFileComp,
 		ShellCompDirectiveFilterFileExt, ShellCompDirectiveFilterDirs,
-		shellCompDirectiveLegacyCustomComp, shellCompDirectiveLegacyCustomArgsComp))
+		shellCompDirectiveLegacyCustomComp, shellCompDirectiveLegacyCustomArgsComp,
+		ShellCompDirectiveInfo))
 }

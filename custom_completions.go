@@ -51,6 +51,13 @@ const (
 	// obtain the same behavior but only for flags.
 	ShellCompDirectiveFilterDirs
 
+	// ShellCompDirectiveInfo indicates that the first element of the completion
+	// array should be printed as information to the user instead of being a completion.
+	// All other elements of the completion array will be ignored.
+	// Note that the element to be printed cannot contain the newline character.
+	// This can be used to provide explanations on why no completions are available.
+	ShellCompDirectiveInfo
+
 	// For internal use only.
 	// Used to maintain backwards-compatibility with the legacy bash custom completions.
 	shellCompDirectiveLegacyCustomComp
@@ -98,6 +105,9 @@ func (d ShellCompDirective) string() string {
 	}
 	if d&ShellCompDirectiveFilterDirs != 0 {
 		directives = append(directives, "ShellCompDirectiveFilterDirs")
+	}
+	if d&ShellCompDirectiveInfo != 0 {
+		directives = append(directives, "ShellCompDirectiveInfo")
 	}
 	if d&shellCompDirectiveLegacyCustomComp != 0 {
 		directives = append(directives, "shellCompDirectiveLegacyCustomComp")

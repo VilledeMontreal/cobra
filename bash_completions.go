@@ -92,6 +92,7 @@ __%[1]s_perform_completion()
     local shellCompDirectiveFilterDirs=%[7]d
     local shellCompDirectiveLegacyCustomComp=%[8]d
     local shellCompDirectiveLegacyCustomArgsComp=%[9]d
+    local shellCompDirectiveInfo=%[10]d
 
     local out requestComp lastParam lastChar comp directive args flagPrefix
 
@@ -153,7 +154,34 @@ __%[1]s_perform_completion()
         fi
     fi
 
-    if [ $((directive & shellCompDirectiveFilterFileExt)) -ne 0 ]; then
+    if [ $((directive & shellCompDirectiveInfo)) -ne 0 ]; then
+        # Bash does not have native support to print an explanation through its
+        # completion system, so we simulate it ourselves by generating two
+        # completions.
+        __%[1]s_debug "Info directive received"
+
+        # First add the information provided by the program
+        while IFS='' read -r comp; do
+            __%[1]s_debug "Info string: $comp"
+            COMPREPLY=("$comp")
+
+            # We only print the first element, or else we would need to deal
+            # with the fact that bash prints completions in alphabetical order,
+            # which would mess up the order of the information strings.
+            break
+        done < <(printf "%%s\n" "${out[@]}")
+
+        # Now add a second completion so that bash prints the completions
+        # to the screen without adding anything to the command-line.
+        # To add a blank completion (so the user does not see anything more),
+        # we add a string of spaces long enough to push our real completion
+        # to the start of the next line.
+        comp=""
+        for ((i = ${#comp} ; i < COLUMNS ; i++)); do
+            comp+=" "
+        done
+        COMPREPLY+=("$comp")
+    elif [ $((directive & shellCompDirectiveFilterFileExt)) -ne 0 ]; then
         # File extension filtering
         local fullFilter filter filteringCmd
 
@@ -336,5 +364,6 @@ fi
 `, name, compCmd,
 		ShellCompDirectiveError, ShellCompDirectiveNoSpace, ShellCompDirectiveNoFileComp,
 		ShellCompDirectiveFilterFileExt, ShellCompDirectiveFilterDirs,
-		shellCompDirectiveLegacyCustomComp, shellCompDirectiveLegacyCustomArgsComp))
+		shellCompDirectiveLegacyCustomComp, shellCompDirectiveLegacyCustomArgsComp,
+		ShellCompDirectiveInfo))
 }

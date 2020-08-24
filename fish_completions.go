@@ -112,6 +112,7 @@ function __%[1]s_prepare_completions
     set shellCompDirectiveFilterDirs %[8]d
     set shellCompDirectiveLegacyCustomComp %[9]d
     set shellCompDirectiveLegacyCustomArgsComp %[10]d
+    set shellCompDirectiveInfo %[11]d
 
     if test -z "$directive"
         set directive 0
@@ -132,6 +133,22 @@ function __%[1]s_prepare_completions
         # Do full file completion instead
         set --global __%[1]s_comp_do_file_comp 1
         return 1
+    end
+
+    set info (math (math --scale 0 $directive / $shellCompDirectiveInfo) %% 2)
+    if test $info -eq 1
+        __%[1]s_debug "Informative directive received"
+
+        # Add a second completion so that fish prints the completions
+        # to the screen without adding anything to the command-line.
+        # To add a blank completion (so the user does not see anything more),
+        # we add a string of spaces long enough to push our real completion
+        # to the start of the next line.
+        # This solution isn't perfect as the user can actually select these
+        # completions as valid completions, but it is the best we can do without
+        # native support from Fish.
+        set --append __%[1]s_comp_results (string repeat -n $COLUMNS " ")
+        return 0
     end
 
     set filefilter (math (math --scale 0 $directive / $shellCompDirectiveFilterFileExt) %% 2)
@@ -195,7 +212,8 @@ complete -c %[2]s -n '__%[1]s_prepare_completions' -f -a '$__%[1]s_comp_results'
 `, nameForVar, name, compCmd,
 		ShellCompDirectiveError, ShellCompDirectiveNoSpace, ShellCompDirectiveNoFileComp,
 		ShellCompDirectiveFilterFileExt, ShellCompDirectiveFilterDirs,
-		shellCompDirectiveLegacyCustomComp, shellCompDirectiveLegacyCustomArgsComp))
+		shellCompDirectiveLegacyCustomComp, shellCompDirectiveLegacyCustomArgsComp,
+		ShellCompDirectiveInfo))
 }
 
 // GenFishCompletion generates fish completion file and writes to the passed writer.
