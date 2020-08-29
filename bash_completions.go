@@ -145,10 +145,101 @@ __%[1]s_handle_go_custom_completion()
             _filedir -d
         fi
     else
-        while IFS='' read -r comp; do
-            COMPREPLY+=("$comp")
-        done < <(compgen -W "${out[*]}" -- "$cur")
+        __%[1]s_handle_custom_comp_with_info $directive "${out[@]}"
     fi
+}
+
+__%[1]s_handle_custom_comp_with_info() {
+    local shellCompDirectiveNoFileComp=%[5]d
+    local directive=$1; shift
+    local input="$@"
+    __%[1]s_debug "${FUNCNAME[0]}: with directive: $directive, input: ${input[@]}"
+
+    local completions=()
+    local infos=()
+    # Bash does not have native support to print an explanation through its
+    # completion system, so we simulate it ourselves by generating
+    # extra completions when we receive informational completions.
+
+    # First separate info lines from real completions
+    while IFS='' read -r comp; do
+        __%[1]s_debug "${FUNCNAME[0]}: Current completion: $comp"
+        if [ "${comp:0:4}" = "_1_ " ]; then
+            comp=${comp:4}
+            __%[1]s_debug "${FUNCNAME[0]}: Info statement found: $comp"
+            if [ -n "$comp" ]; then
+                # Add the information line directly to COMPREPLY, without going through
+                # compgen.  That way, bash will print it all the time, even if it does not
+                # match what the user started typing.
+                infos+=("$comp")
+            fi
+        else
+            # Not an info line but a normal completion
+            completions+=("$comp")
+        fi
+    done < <(printf "%%s\n" "${input[@]}")
+
+    # Now check if there is a common prefix for the completions.  If so, the shell
+    # will automatically expand what the user typed, so we cannot put any info lines.
+    local longestPrefix
+    while IFS='' read -r comp; do
+        if [ -z "$longestPrefix" ]; then
+            longestPrefix=$comp
+            continue
+        fi
+
+        # Find longest prefix
+        local prefix match
+        for ((i=1;i<=${#comp};i++)); do
+            prefix=${comp:0:$i};
+            if [ "${longestPrefix#$prefix}" != "${longestPrefix}" ]; then
+                match=$prefix
+            else
+                break
+            fi
+        done
+        longestPrefix=$match
+        if [ "$longestPrefix" = "$cur" ]; then
+            break
+        fi
+    done < <(compgen -W "${completions[*]}" -- "$cur")
+
+    __%[1]s_debug "${FUNCNAME[0]}: Longest prefix found: $longestPrefix"
+
+    if [ ${#infos[@]} -gt 0 ]; then
+        if [ -z "$longestPrefix" ] && [ $((directive & shellCompDirectiveNoFileComp)) -gt 0 ] ||
+                [ "$longestPrefix" = "$cur" ]; then
+            # No more common prefix, so we can print our infos
+            __%[1]s_debug "${FUNCNAME[0]}: Activating infos"
+            COMPREPLY=("${infos[@]}")
+
+            # We have received some info statements, so we need to
+            # disable sorting of completions to allow printing the information
+            # lines first and keeping their order.
+            compopt -o nosort
+            # Now sort the real completions ourselves
+            IFS=$'\n' completions=($(sort <<<"${completions[*]}"))
+            unset IFS
+
+            # To make sure each info completion is printed on its own line, we make the
+            # first one as long as the full line by padding it with spaces
+            comp=${COMPREPLY[0]}
+            for ((i = ${#comp} ; i < COLUMNS ; i++)); do
+                comp+=" "
+            done
+            COMPREPLY[0]="$comp"
+
+            # Always follow infos with an empty line for two reasons:
+            # 1- if there is only a single completion (including infos) we need
+            #    a second one to force bash to display the single info
+            # 2- it gives a nice visual delimiter
+            COMPREPLY+=("")
+        fi
+    fi
+
+    while IFS='' read -r comp; do
+        COMPREPLY+=("$comp")
+    done < <(compgen -W "${completions[*]}" -- "$cur")
 }
 
 __%[1]s_handle_reply()

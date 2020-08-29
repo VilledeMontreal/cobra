@@ -164,6 +164,16 @@ _%[1]s()
     fi
 
     while IFS='\n' read -r comp; do
+        if [ "${comp[1,4]}" = "_1_ " ];then
+            __%[1]s_debug "Info statement found: $comp"
+            comp=${comp[5,-1]}
+            if [ -n "$comp" ]; then
+                compadd -x "${comp}"
+            fi
+
+            continue
+        fi
+
         if [ -n "$comp" ]; then
             # If requested, completions are returned with a description.
             # The description is preceded by a TAB character.

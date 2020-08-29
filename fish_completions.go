@@ -100,7 +100,15 @@ function __%[1]s_prepare_completions
     end
 
     set directive (string sub --start 2 $results[-1])
-    set --global __%[1]s_comp_results $results[1..-2]
+
+    # Copy each completion while ignoring any information entries as
+    # such entries are not supported by fish
+    set --global __%[1]s_comp_results
+    for comp in $results[1..-2]
+        if test (string sub --length 4 $comp) != "_1_ "
+            set -a __%[1]s_comp_results $comp
+        end
+    end
 
     __%[1]s_debug "Completions are: $__%[1]s_comp_results"
     __%[1]s_debug "Directive is: $directive"
