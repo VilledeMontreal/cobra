@@ -13,9 +13,7 @@ func validArgsFunc(cmd *Command, args []string, toComplete string) ([]string, Sh
 
 	var completions []string
 	for _, comp := range []string{"one\tThe first", "two\tThe second"} {
-		if strings.HasPrefix(comp, toComplete) {
-			completions = append(completions, comp)
-		}
+		completions = append(completions, comp)
 	}
 	return completions, ShellCompDirectiveDefault
 }
@@ -27,9 +25,7 @@ func validArgsFunc2(cmd *Command, args []string, toComplete string) ([]string, S
 
 	var completions []string
 	for _, comp := range []string{"three\tThe third", "four\tThe fourth"} {
-		if strings.HasPrefix(comp, toComplete) {
-			completions = append(completions, comp)
-		}
+		completions = append(completions, comp)
 	}
 	return completions, ShellCompDirectiveDefault
 }
@@ -85,13 +81,16 @@ func TestCmdNameCompletionInGo(t *testing.T) {
 		t.Errorf("expected: %q, got: %q", expected, output)
 	}
 
-	// Test that sub-command names are completed with prefix
+	// Test that sub-command names ignore the prefix
 	output, err = executeCommand(rootCmd, ShellCompNoDescRequestCmd, "s")
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
 	expected = strings.Join([]string{
+		"aliased",
+		"firstChild",
+		"help",
 		"secondChild",
 		":4",
 		"Completion ended with directive: ShellCompDirectiveNoFileComp", ""}, "\n")
@@ -108,6 +107,10 @@ func TestCmdNameCompletionInGo(t *testing.T) {
 	}
 
 	expected = strings.Join([]string{
+		"aliased",
+		"firstChild",
+		"help",
+		"secondChild",
 		":4",
 		"Completion ended with directive: ShellCompDirectiveNoFileComp", ""}, "\n")
 
@@ -262,7 +265,10 @@ func TestValidArgsCompletionInGo(t *testing.T) {
 		t.Errorf("expected: %q, got: %q", expected, output)
 	}
 
-	// Test that validArgs are completed with prefix
+	// Reset to remove previously added __complete command
+	rootCmd.ResetCommands()
+
+	// Test that validArgs are completed while ignoring the prefix
 	output, err = executeCommand(rootCmd, ShellCompNoDescRequestCmd, "o")
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -270,6 +276,8 @@ func TestValidArgsCompletionInGo(t *testing.T) {
 
 	expected = strings.Join([]string{
 		"one",
+		"two",
+		"three",
 		":4",
 		"Completion ended with directive: ShellCompDirectiveNoFileComp", ""}, "\n")
 
@@ -324,14 +332,16 @@ func TestValidArgsAndCmdCompletionInGo(t *testing.T) {
 		t.Errorf("expected: %q, got: %q", expected, output)
 	}
 
-	// Test that both sub-commands and validArgs are completed with prefix
+	// Test that both sub-commands and validArgs are completed while ignoring the prefix
 	output, err = executeCommand(rootCmd, ShellCompNoDescRequestCmd, "t")
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
 	expected = strings.Join([]string{
+		"help",
 		"thechild",
+		"one",
 		"two",
 		":4",
 		"Completion ended with directive: ShellCompDirectiveNoFileComp", ""}, "\n")
@@ -374,14 +384,16 @@ func TestValidArgsFuncAndCmdCompletionInGo(t *testing.T) {
 		t.Errorf("expected: %q, got: %q", expected, output)
 	}
 
-	// Test that both sub-commands and validArgs are completed with prefix
+	// Test that both sub-commands and validArgs are completed while ignoring prefix
 	output, err = executeCommand(rootCmd, ShellCompNoDescRequestCmd, "t")
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
 	expected = strings.Join([]string{
+		"help",
 		"thechild",
+		"one",
 		"two",
 		":0",
 		"Completion ended with directive: ShellCompDirectiveDefault", ""}, "\n")
@@ -390,14 +402,16 @@ func TestValidArgsFuncAndCmdCompletionInGo(t *testing.T) {
 		t.Errorf("expected: %q, got: %q", expected, output)
 	}
 
-	// Test that both sub-commands and validArgs are completed with description
+	// Test that both sub-commands and validArgs are completed with description while ignoring prefix
 	output, err = executeCommand(rootCmd, ShellCompRequestCmd, "t")
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
 	expected = strings.Join([]string{
+		"help\tHelp about any command",
 		"thechild\tThe child command",
+		"one\tThe first",
 		"two\tThe second",
 		":0",
 		"Completion ended with directive: ShellCompDirectiveDefault", ""}, "\n")
@@ -456,7 +470,7 @@ func TestFlagNameCompletionInGo(t *testing.T) {
 		t.Errorf("expected: %q, got: %q", expected, output)
 	}
 
-	// Test that flag names are completed when a prefix is given
+	// Test that flag names are completed while ignoring a prefix
 	output, err = executeCommand(rootCmd, ShellCompNoDescRequestCmd, "--f")
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -464,6 +478,9 @@ func TestFlagNameCompletionInGo(t *testing.T) {
 
 	expected = strings.Join([]string{
 		"--first",
+		"-f",
+		"--second",
+		"-s",
 		":4",
 		"Completion ended with directive: ShellCompDirectiveNoFileComp", ""}, "\n")
 
@@ -539,7 +556,7 @@ func TestFlagNameCompletionInGoWithDesc(t *testing.T) {
 		t.Errorf("expected: %q, got: %q", expected, output)
 	}
 
-	// Test that flag names are completed when a prefix is given
+	// Test that flag names are completed while ignoring a prefix
 	output, err = executeCommand(rootCmd, ShellCompRequestCmd, "--f")
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -547,6 +564,9 @@ func TestFlagNameCompletionInGoWithDesc(t *testing.T) {
 
 	expected = strings.Join([]string{
 		"--first\tfirst flag",
+		"-f\tfirst flag",
+		"--second\tsecond flag",
+		"-s\tsecond flag",
 		":4",
 		"Completion ended with directive: ShellCompDirectiveNoFileComp", ""}, "\n")
 
@@ -605,9 +625,13 @@ func TestFlagNameCompletionRepeat(t *testing.T) {
 
 	expected := strings.Join([]string{
 		"--array",
+		"-a",
 		"--bslice",
+		"-b",
 		"--second",
+		"-s",
 		"--slice",
+		"-l",
 		":4",
 		"Completion ended with directive: ShellCompDirectiveNoFileComp", ""}, "\n")
 
@@ -626,8 +650,11 @@ func TestFlagNameCompletionRepeat(t *testing.T) {
 
 	expected = strings.Join([]string{
 		"--array",
+		"-a",
 		"--bslice",
+		"-b",
 		"--slice",
+		"-l",
 		":4",
 		"Completion ended with directive: ShellCompDirectiveNoFileComp", ""}, "\n")
 
@@ -647,10 +674,15 @@ func TestFlagNameCompletionRepeat(t *testing.T) {
 
 	expected = strings.Join([]string{
 		"--array",
+		"-a",
 		"--bslice",
+		"-b",
 		"--first",
+		"-f",
 		"--second",
+		"-s",
 		"--slice",
+		"-l",
 		":4",
 		"Completion ended with directive: ShellCompDirectiveNoFileComp", ""}, "\n")
 
@@ -685,7 +717,7 @@ func TestFlagNameCompletionRepeat(t *testing.T) {
 		t.Errorf("expected: %q, got: %q", expected, output)
 	}
 
-	// Test that flag names are not repeated unless they are an array or slice, using shortname with prefix
+	// Test that flag names are not repeated unless they are an array or slice, using shortname ignoring prefix
 	output, err = executeCommand(rootCmd, ShellCompNoDescRequestCmd, "-l", "1", "-l=2", "-a", "val", "-a")
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -695,7 +727,16 @@ func TestFlagNameCompletionRepeat(t *testing.T) {
 	arrayFlag.Changed = false
 
 	expected = strings.Join([]string{
+		"--array",
 		"-a",
+		"--bslice",
+		"-b",
+		"--first",
+		"-f",
+		"--second",
+		"-s",
+		"--slice",
+		"-l",
 		":4",
 		"Completion ended with directive: ShellCompDirectiveNoFileComp", ""}, "\n")
 
@@ -772,14 +813,17 @@ func TestRequiredFlagNameCompletionInGo(t *testing.T) {
 		t.Errorf("expected: %q, got: %q", expected, output)
 	}
 
-	// Test that if no required flag matches, the normal flags are suggested
+	// Test that prefixes are ignored and and required flag are still given priority
 	output, err = executeCommand(rootCmd, ShellCompNoDescRequestCmd, "--relea")
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
 	expected = strings.Join([]string{
-		"--release",
+		"--requiredFlag",
+		"-r",
+		"--requiredPersistent",
+		"-p",
 		":4",
 		"Completion ended with directive: ShellCompDirectiveNoFileComp", ""}, "\n")
 
@@ -829,7 +873,10 @@ func TestRequiredFlagNameCompletionInGo(t *testing.T) {
 	}
 
 	expected = strings.Join([]string{
-		"--subNotRequired",
+		"--requiredPersistent",
+		"-p",
+		"--subRequired",
+		"-s",
 		":4",
 		"Completion ended with directive: ShellCompDirectiveNoFileComp", ""}, "\n")
 
@@ -1157,13 +1204,17 @@ func TestValidArgsFuncSingleCmd(t *testing.T) {
 		t.Errorf("expected: %q, got: %q", expected, output)
 	}
 
-	// Check completing with a prefix
+	// Reset to remove previously added __complete command
+	rootCmd.ResetCommands()
+
+	// Check completing while ignoring a prefix
 	output, err = executeCommand(rootCmd, ShellCompNoDescRequestCmd, "t")
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
 	expected = strings.Join([]string{
+		"one",
 		"two",
 		":0",
 		"Completion ended with directive: ShellCompDirectiveDefault", ""}, "\n")
@@ -1230,13 +1281,14 @@ func TestValidArgsFuncChildCmds(t *testing.T) {
 		t.Errorf("expected: %q, got: %q", expected, output)
 	}
 
-	// Test completion of first sub-command with a prefix to complete
+	// Test completion of first sub-command while ignoring a prefix
 	output, err = executeCommand(rootCmd, ShellCompNoDescRequestCmd, "child1", "t")
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
 	expected = strings.Join([]string{
+		"one",
 		"two",
 		":0",
 		"Completion ended with directive: ShellCompDirectiveDefault", ""}, "\n")
@@ -1282,6 +1334,7 @@ func TestValidArgsFuncChildCmds(t *testing.T) {
 
 	expected = strings.Join([]string{
 		"three",
+		"four",
 		":0",
 		"Completion ended with directive: ShellCompDirectiveDefault", ""}, "\n")
 
@@ -1330,13 +1383,14 @@ func TestValidArgsFuncAliases(t *testing.T) {
 		t.Errorf("expected: %q, got: %q", expected, output)
 	}
 
-	// Test completion of first sub-command with a prefix to complete
+	// Test completion of first sub-command while ignoring a prefix
 	output, err = executeCommand(rootCmd, ShellCompNoDescRequestCmd, "daughter", "t")
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
 	expected = strings.Join([]string{
+		"one",
 		"two",
 		":0",
 		"Completion ended with directive: ShellCompDirectiveDefault", ""}, "\n")
@@ -1563,13 +1617,14 @@ func TestValidArgsFuncChildCmdsWithDesc(t *testing.T) {
 		t.Errorf("expected: %q, got: %q", expected, output)
 	}
 
-	// Test completion of first sub-command with a prefix to complete
+	// Test completion of first sub-command while ignoring a prefix
 	output, err = executeCommand(rootCmd, ShellCompRequestCmd, "child1", "t")
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
 	expected = strings.Join([]string{
+		"one\tThe first",
 		"two\tThe second",
 		":0",
 		"Completion ended with directive: ShellCompDirectiveDefault", ""}, "\n")
@@ -1615,6 +1670,7 @@ func TestValidArgsFuncChildCmdsWithDesc(t *testing.T) {
 
 	expected = strings.Join([]string{
 		"three\tThe third",
+		"four\tThe fourth",
 		":0",
 		"Completion ended with directive: ShellCompDirectiveDefault", ""}, "\n")
 
@@ -1757,13 +1813,17 @@ func TestValidArgsNotValidArgsFunc(t *testing.T) {
 		t.Errorf("expected: %q, got: %q", expected, output)
 	}
 
-	// Check completing with a prefix
+	// Reset to remove previously added __complete command
+	rootCmd.ResetCommands()
+
+	// Check completing while ignoring a prefix
 	output, err = executeCommand(rootCmd, ShellCompNoDescRequestCmd, "t")
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
 	expected = strings.Join([]string{
+		"one",
 		"two",
 		":4",
 		"Completion ended with directive: ShellCompDirectiveNoFileComp", ""}, "\n")
@@ -1799,6 +1859,9 @@ func TestArgAliasesCompletionInGo(t *testing.T) {
 		t.Errorf("expected: %q, got: %q", expected, output)
 	}
 
+	// Reset to remove previously added __complete command
+	rootCmd.ResetCommands()
+
 	// Test that argaliases are not completed when there are validargs that match using a prefix
 	output, err = executeCommand(rootCmd, ShellCompNoDescRequestCmd, "t")
 	if err != nil {
@@ -1806,6 +1869,7 @@ func TestArgAliasesCompletionInGo(t *testing.T) {
 	}
 
 	expected = strings.Join([]string{
+		"one",
 		"two",
 		"three",
 		":4",
@@ -1815,14 +1879,19 @@ func TestArgAliasesCompletionInGo(t *testing.T) {
 		t.Errorf("expected: %q, got: %q", expected, output)
 	}
 
-	// Test that argaliases are completed when there are no validargs that match
+	// Reset to remove previously added __complete command
+	rootCmd.ResetCommands()
+
+	// Test that argaliases are not completed even when there are no validargs that match
 	output, err = executeCommand(rootCmd, ShellCompNoDescRequestCmd, "tr")
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
 	expected = strings.Join([]string{
-		"trois",
+		"one",
+		"two",
+		"three",
 		":4",
 		"Completion ended with directive: ShellCompDirectiveNoFileComp", ""}, "\n")
 

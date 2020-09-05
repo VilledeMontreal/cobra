@@ -249,13 +249,7 @@ func (c *Command) getCompletions(args []string) (*Command, []string, ShellCompDi
 			})
 		}
 
-		directive := ShellCompDirectiveNoFileComp
-		if len(completions) == 1 && strings.HasSuffix(completions[0], "=") {
-			// If there is a single completion, the shell usually adds a space
-			// after the completion.  We don't want that if the flag ends with an =
-			directive = ShellCompDirectiveNoSpace
-		}
-		return finalCmd, completions, directive, nil
+		return finalCmd, completions, ShellCompDirectiveNoFileComp, nil
 	}
 
 	// We only remove the flags from the arguments if DisableFlagParsing is not set.
@@ -283,9 +277,9 @@ func (c *Command) getCompletions(args []string) (*Command, []string, ShellCompDi
 			// - there are no local, non-peristent flag on the command-line
 			for _, subCmd := range finalCmd.Commands() {
 				if subCmd.IsAvailableCommand() || subCmd == finalCmd.helpCommand {
-					if strings.HasPrefix(subCmd.Name(), toComplete) {
-						completions = append(completions, fmt.Sprintf("%s\t%s", subCmd.Name(), subCmd.Short))
-					}
+					// Don't filter using 'toComplete' as a prefix because the shell can do smarter
+					// filtering.  So, we return all possible completions and let the shell filter them.
+					completions = append(completions, fmt.Sprintf("%s\t%s", subCmd.Name(), subCmd.Short))
 					directive = ShellCompDirectiveNoFileComp
 				}
 			}
@@ -300,21 +294,21 @@ func (c *Command) getCompletions(args []string) (*Command, []string, ShellCompDi
 			if len(finalArgs) == 0 {
 				// ValidArgs are only for the first argument
 				for _, validArg := range finalCmd.ValidArgs {
-					if strings.HasPrefix(validArg, toComplete) {
-						completions = append(completions, validArg)
-					}
+					// Don't filter using 'toComplete' as a prefix because the shell can do smarter
+					// filtering.  So, we return all possible completions and let the shell filter them.
+					completions = append(completions, validArg)
 				}
 				directive = ShellCompDirectiveNoFileComp
 
-				// If no completions were found within commands or ValidArgs,
-				// see if there are any ArgAliases that should be completed.
-				if len(completions) == 0 {
-					for _, argAlias := range finalCmd.ArgAliases {
-						if strings.HasPrefix(argAlias, toComplete) {
-							completions = append(completions, argAlias)
-						}
-					}
-				}
+				// By definition ArgAliases are not suggested as completions.  If an ArgAlias needs
+				// to be suggested then it should be part of ValidArgs instead.
+				// Note that we used to suggest ArgAliases if no other completion was available;
+				// however, since we no longer filter completions based on a prefix, but instead let
+				// the shell do the filtering, we can not know at this point if the shell will filter out
+				// all completions or not.  So, we just don't suggest ArgAliases at all, as was originally
+				// intended.
+				// All this makes ArgAliases useless; to achieve the old behavior ValidArgsFunction can
+				// be used instead.
 			}
 
 			// If there are ValidArgs specified (even if they don't match), we stop completion.
@@ -352,26 +346,16 @@ func getFlagNameCompletions(flag *pflag.Flag, toComplete string) []string {
 
 	var completions []string
 	flagName := "--" + flag.Name
-	if strings.HasPrefix(flagName, toComplete) {
-		// Flag without the =
-		completions = append(completions, fmt.Sprintf("%s\t%s", flagName, flag.Usage))
+	// Long-form flag
+	// Don't filter using 'toComplete' as a prefix because the shell can do smarter
+	// filtering.  So, we return all possible completions and let the shell filter them.
+	completions = append(completions, fmt.Sprintf("%s\t%s", flagName, flag.Usage))
 
-		// Why suggest both long forms: --flag and --flag= ?
-		// This forces the user to *always* have to type either an = or a space after the flag name.
-		// Let's be nice and avoid making users have to do that.
-		// Since boolean flags and shortname flags don't show the = form, let's go that route and never show it.
-		// The = form will still work, we just won't suggest it.
-		// This also makes the list of suggested flags shorter as we avoid all the = forms.
-		//
-		// if len(flag.NoOptDefVal) == 0 {
-		// 	// Flag requires a value, so it can be suffixed with =
-		// 	flagName += "="
-		// 	completions = append(completions, fmt.Sprintf("%s\t%s", flagName, flag.Usage))
-		// }
-	}
-
+	// Short-form flag
+	// Don't filter using 'toComplete' as a prefix because the shell can do smarter
+	// filtering.  So, we return all possible completions and let the shell filter them.
 	flagName = "-" + flag.Shorthand
-	if len(flag.Shorthand) > 0 && strings.HasPrefix(flagName, toComplete) {
+	if len(flag.Shorthand) > 0 {
 		completions = append(completions, fmt.Sprintf("%s\t%s", flagName, flag.Usage))
 	}
 
