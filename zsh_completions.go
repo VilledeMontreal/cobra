@@ -101,6 +101,32 @@ _%[1]s()
     __%[1]s_debug "\n========= starting completion logic =========="
     __%[1]s_debug "CURRENT: ${CURRENT}, words[*]: ${words[*]}"
 
+    ############
+    # QuickHelp - instantly show the help for the current command-line using a keybinding
+    ############
+    # To choose the key of your choice for QuickHelp, you must bind that key to completion
+    # and set $QUICKHELP_KEY (see below).  First add a line similar to one of
+    # the following to you .zshrc file:
+    #   bindkey "^[OP" expand-or-complete # F1
+    #   bindkey "^R" expand-or-complete   # ^r
+    # To find they key pattern press ^v followed by the key combination.
+    #
+    # Second set QUICKHELP_KEY in your .zshrc file.  Note that the QUICKHELP_KEY content
+    # is different than for bind.
+    # For the pattern for $QUICKHELP_KEY here are some examples:
+    #
+    #  export QUICKHELP_KEY=$'\C-[OP'   # F1
+    #  export QUICKHELP_KEY=$'\C-R'     # ^r
+    #
+    if [ "$KEYS" = ${QUICKHELP_KEY:-$'\C-[OP'} ]; then
+        __%[1]s_debug "ActiveHelp requested"
+        local requestHelp="${words[*]} --help"
+
+        __%[1]s_debug "Calling ${requestHelp}"
+        eval "$requestHelp" | \less 2> /dev/null
+        return
+    fi
+
     # The user could have moved the cursor backwards on the command-line.
     # We need to trigger completion from the $CURRENT location, so we need
     # to truncate the command-line ($words) up to the $CURRENT location.
@@ -232,7 +258,14 @@ _%[1]s()
 
 # don't run the completion function when being source-ed or eval-ed
 if [ "$funcstack[1]" = "_%[1]s" ]; then
-	_%[1]s
+    _%[1]s
+fi
+
+# Bind F1 to QuickHelp if the user didn't specify something else.
+# Note that if the user wants to use something else by setting QUICKHELP_KEY
+# they are responsible for doing the bindkey command.
+if [ -z $QUICKHELP_KEY ]; then
+    bindkey "^[OP" expand-or-complete
 fi
 `, name, compCmd,
 		ShellCompDirectiveError, ShellCompDirectiveNoSpace, ShellCompDirectiveNoFileComp,

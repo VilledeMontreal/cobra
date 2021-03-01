@@ -261,6 +261,42 @@ __start_%[1]s()
     __%[1]s_debug "========= starting completion logic =========="
     __%[1]s_debug "cur is ${cur}, words[*] is ${words[*]}, #words[@] is ${#words[@]}, cword is $cword"
 
+    ############
+    # QuickHelp - instantly show the help for the current command-line using a keybinding
+    ############
+    # To choose the key of your choice for QuickHelp, you must bind that key to completion
+    # and set $QUICKHELP_KEY (see below).  First add a line similar to one of
+    # the following to you .bashrc file:
+    #   bind '"OP":complete' # F1 - There is a special escape character before the OP!
+    #   bind '"":complete'   # ^r - There is a special ^r character between the ""!
+    # To input the proper key pattern you must press ^v followed by the key combination.
+    #
+    # Second set QUICKHELP_KEY in your .bashrc file.  Note that the QUICKHELP_KEY content
+    # is different than for bind.
+    # The pattern for $COMP_KEY, with which $QUICKHELP_KEY is compared, is unclear;
+    # you can look at the logs using $BASH_COMP_DEBUG_FILE to see the content
+    # of $COMP_KEY and then set QUICKHELP_KEY to that value.
+    # Here are some examples of what should be put in $QUICKHELP_KEY:
+    #
+    #  export QUICKHELP_KEY=80   # F1 (or P, if that is what you used with bind)
+    #  export QUICKHELP_KEY=18   # ^r
+    #
+    # 80 is what COMP_KEY is set to if F1 is bound for completion
+    __%[1]s_debug "COMP_KEY is: $COMP_KEY"
+    if [ "$COMP_KEY" -eq ${QUICKHELP_KEY:-80} ]; then
+        __%[1]s_debug "ActiveHelp requested"
+
+        # Turn off file completion since COMPREPLY will empty
+        # which would trigger file completion.
+        [[ $(type -t compopt) = "builtin" ]] && compopt +o default
+
+        local requestHelp="${words[*]} --help"
+
+        __%[1]s_debug "Calling ${requestHelp}"
+        eval "$requestHelp" | \less 2> /dev/null
+        return
+    fi
+
     # The user could have moved the cursor backwards on the command-line.
     # We need to trigger completion from the $cword location, so we need
     # to truncate the command-line ($words) up to the $cword location.
@@ -276,6 +312,13 @@ if [[ $(type -t compopt) = "builtin" ]]; then
     complete -o default -F __start_%[1]s %[1]s
 else
     complete -o default -o nospace -F __start_%[1]s %[1]s
+fi
+
+# Bind F1 to QuickHelp if the user didn't specify something else.
+# Note that if the user wants to use something else by setting QUICKHELP_KEY
+# they are responsible for doing the bindkey command.
+if [ -z $QUICKHELP_KEY ]; then
+    bind '"OP":complete'  # F1
 fi
 
 # ex: ts=4 sw=4 et filetype=sh
