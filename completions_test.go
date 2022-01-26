@@ -3,6 +3,7 @@ package cobra
 import (
 	"bytes"
 	"context"
+	"os"
 	"strings"
 	"testing"
 )
@@ -2657,6 +2658,66 @@ func TestCompleteWithRootAndLegacyArgs(t *testing.T) {
 	expected = strings.Join([]string{
 		"arg1",
 		"arg2",
+		":4",
+		"Completion ended with directive: ShellCompDirectiveNoFileComp", ""}, "\n")
+
+	if output != expected {
+		t.Errorf("expected: %q, got: %q", expected, output)
+	}
+}
+
+func TestCompletionDisableDescriptions(t *testing.T) {
+	rootCmd := &Command{
+		Use: "root",
+		Run: emptyRun,
+	}
+	childCmd := &Command{
+		Use:   "child",
+		Short: "Child command",
+		Run:   emptyRun,
+	}
+	rootCmd.AddCommand(childCmd)
+
+	// Test that sub-command names have completions descriptions
+	output, err := executeCommand(rootCmd, ShellCompRequestCmd, "ch")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	expected := strings.Join([]string{
+		"child\tChild command",
+		":4",
+		"Completion ended with directive: ShellCompDirectiveNoFileComp", ""}, "\n")
+
+	if output != expected {
+		t.Errorf("expected: %q, got: %q", expected, output)
+	}
+
+	// Test that completion descriptions can be disabled using __completeNoDesc
+	output, err = executeCommand(rootCmd, ShellCompNoDescRequestCmd, "ch")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	expected = strings.Join([]string{
+		"child",
+		":4",
+		"Completion ended with directive: ShellCompDirectiveNoFileComp", ""}, "\n")
+
+	if output != expected {
+		t.Errorf("expected: %q, got: %q", expected, output)
+	}
+
+	// Test that completion descriptions can be disabled using the env var
+	os.Setenv(compDescEnvVar, compDescGlobalDisable)
+	output, err = executeCommand(rootCmd, ShellCompRequestCmd, "ch")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	os.Unsetenv(compDescEnvVar)
+
+	expected = strings.Join([]string{
+		"child",
 		":4",
 		"Completion ended with directive: ShellCompDirectiveNoFileComp", ""}, "\n")
 

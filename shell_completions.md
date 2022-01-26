@@ -378,6 +378,9 @@ or
 ```go
 ValidArgs: []string{"bash\tCompletions for bash", "zsh\tCompletions for zsh"}
 ```
+
+**Note:** Cobra allows individual users to disable completion descriptions through an environment variable.  To do so, a user can simply `export COBRA_COMPLETION_DESCRIPTIONS=0`.  Note that this will disable completion descriptions for ***all*** programs using Cobra; to allow users to disable descriptions for your program alone you should provide them with such an option when generating the shell completion script (using a flag for example).  The default `completion` command provides such an option through its `--no-descriptions` flag.
+
 ## Bash completions
 
 ### Dependencies

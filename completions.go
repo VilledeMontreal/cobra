@@ -81,6 +81,10 @@ const (
 	compCmdNoDescFlagName    = "no-descriptions"
 	compCmdNoDescFlagDesc    = "disable completion descriptions"
 	compCmdNoDescFlagDefault = false
+
+	// Environment variable to globally disable completion descriptions
+	compDescEnvVar        = "COBRA_COMPLETION_DESCRIPTIONS"
+	compDescGlobalDisable = "0"
 )
 
 // CompletionOptions are the options to control shell completion
@@ -168,7 +172,7 @@ func (c *Command) initCompleteCmd(args []string) {
 				// 2- Even without completions, we need to print the directive
 			}
 
-			noDescriptions := (cmd.CalledAs() == ShellCompNoDescRequestCmd)
+			noDescriptions := (cmd.CalledAs() == ShellCompNoDescRequestCmd || os.Getenv(compDescEnvVar) == compDescGlobalDisable)
 			for _, comp := range completions {
 				if noDescriptions {
 					// Remove any description that may be included following a tab character.
